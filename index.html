@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" context="width=device-width, initial-scale=1.0">
   <title>SHM TIP A CREATOR</title>
   <!-- Ethers.js -->
   <script src="ethers.umd.min.js"></script>
@@ -223,7 +224,6 @@ const unstablenetParams = {
       try {
         const tx = await contract.tip(creator, { value: ethers.utils.parseEther(amount) });
         await tx.wait();
-        showPopup("Successfully tipped $(amount) SHM to $(creator)!", "ei_1755166122310-removebg-preview.png", "lightgreen");
         alert(`Successfully tipped ${amount} SHM to ${creator}!`);
       } catch (err) {
         console.error(err);
@@ -283,3 +283,4 @@ const unstablenetParams = {
 
 </body>
 </html>
+
