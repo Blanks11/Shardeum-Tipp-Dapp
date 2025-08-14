@@ -112,26 +112,24 @@
 </head>
 <body>
 
-  <video class="bg-video" autoplay muted loop>
+    <video class="bg-video" autoplay muted loop>
     <source src="video_2025-08-13_19-34-01.mp4" type="video/mp4">
-  </video> -->
+  </video>
 
   <div class="top-right">
     <button id="connectBtn">Connect Wallet</button>
+    <button id="disconnectBtn" style="display:none;">Disconnect</button>
   </div>
 
   <div class="container">
-    <h1>Tip a Creator SHARDEUM
-      (Divineaweb3)</h1>
+    <h1>Tip a Creator SHARDEUM (Divineaweb3)</h1>
     <p id="walletAddress">Not connected</p>
     <hr>
-
     <h3>Send Tip</h3>
     <input type="text" id="creatorAddress" placeholder="Creator wallet address" size="40">
     <input type="number" id="amount" placeholder="Amount in SHM">
     <button id="tipBtn">Send Tip</button>
     <hr>
-
     <h3>Check Total Tips</h3>
     <input type="text" id="checkAddress" placeholder="Creator wallet address" size="40">
     <button id="checkBtn">Check</button>
@@ -139,26 +137,31 @@
   </div>
 
   <!-- Popup Notification -->
-  <div id="popup" class="popup"></div>
-  <img id="popupIcon" src=""alt="" />
-  <span id="popupMessage"></span>
+  <div id="popup" class="popup">
+    <img id="popupIcon" src="" alt="" />
+    <span id="popupMessage"></span>
+  </div>
 
-    <script>
-    const contractAddress = "0x7Cdd7526195058B38cf2399f822f593a28982114"; // Your deployed contract
-    const unstablenetChainId = "0x1F90"; // 8080 in hex
-const unstablenetParams = {
-  chainId: unstablenetChainId,
-  chainName: "Shardeum Unstablenet",
-  nativeCurrency: {
-    name: "Shardeum",
-    symbol: "SHM",
-    decimals: 18
-  },
-  rpcUrls: ["https://api-unstablenet.shardeum.org/"],
-  blockExplorerUrls: ["https://explorer-unstablenet.shardeum.org/"]
-};
+  <script>
+    const contractAddress = "0x7Cdd7526195058B38cf2399f822f593a28982114";
+    const unstablenetChainId = "0x1F90";
+    const unstablenetParams = {
+      chainId: unstablenetChainId,
+      chainName: "Shardeum Unstablenet",
+      nativeCurrency: {
+        name: "Shardeum",
+        symbol: "SHM",
+        decimals: 18
+      },
+      rpcUrls: ["https://api-unstablenet.shardeum.org/"],
+      blockExplorerUrls: ["https://explorer-unstablenet.shardeum.org/"]
+    };
 
     let provider, signer, contract;
+
+    const connectBtn = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const walletAddressp = document.getElementById("walletAddress");
 
     async function switchToUnstablenet() {
       try {
@@ -167,7 +170,6 @@ const unstablenetParams = {
           params: [{ chainId: unstablenetChainId }]
         });
       } catch (switchError) {
-        // If the network is not added to MetaMask, add it
         if (switchError.code === 4902) {
           try {
             await window.ethereum.request({
@@ -184,42 +186,42 @@ const unstablenetParams = {
     }
 
     async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    alert("MetaMask not detected. Please install it from https://metamask.io/");
-    return;
-  }
+      if (typeof window.ethereum === "undefined") {
+        alert("MetaMask not detected. Please install it from https://metamask.io/");
+        return;
+      }
+      try {
+        const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (currentChainId !== unstablenetChainId) {
+          await switchToUnstablenet();
+        }
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-  try {
-    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-    console.log("Current Chain ID:", currentChainId);
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
 
-    if (currentChainId !== unstablenetChainId) {
-      console.log("Switching to Unstablenet...");
-      await switchToUnstablenet();
+        const addr = await signer.getAddress();
+        walletAddressp.innerText = "Connected: " + addr;
+        connectBtn.style.display = "none";
+        disconnectBtn.style.display = "inline-block";
+      } catch (err) {
+        alert("Connection failed: " + (err.message || "Unknown error"));
+      }
     }
 
-    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    function disconnectWallet() {
+      signer = null;
+      contract = null;
+      provider = null;
+      walletAddressp.innerText = "Not connected";
+      connectBtn.style.display = "inline-block";
+      disconnectBtn.style.display = "none";
+      alert("Wallet disconnected successfully.");
+    }
 
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    signer = provider.getSigner();
-    contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-    const addr = await signer.getAddress();
-    document.getElementById("walletAddress").innerText = "Connected: " + addr;
-
-    // 🔹 Change button text after connecting
-    const connectBtn = document.getElementById("connectBtn");
-    connectBtn.innerText = "Connected ✅";
-    connectBtn.disabled = true;
-
-    console.log("Connected wallet:", addr);
-
-  } catch (err) {
-    console.error("Full MetaMask Error Object:", err);
-    alert("Connection failed: " + (err.message || "Unknown error"));
-  }
-}
-
+    connectBtn.addEventListener("click", connectWallet);
+    disconnectBtn.addEventListener("click", disconnectWallet);
 
     async function sendTip() {
       if (!contract) {
@@ -235,6 +237,7 @@ const unstablenetParams = {
       try {
         const tx = await contract.tip(creator, { value: ethers.utils.parseEther(amount) });
         await tx.wait();
+        showPopup(`Successfully tipped ${amount} SHM to ${creator}!`, "ei_1755166122310-removebg-preview.png", "lightgreen");
         alert(`Successfully tipped ${amount} SHM to ${creator}!`);
       } catch (err) {
         console.error(err);
@@ -262,37 +265,39 @@ const unstablenetParams = {
       }
     }
 
-    document.getElementById("connectBtn").onclick = connectWallet;
     document.getElementById("tipBtn").onclick = sendTip;
     document.getElementById("checkBtn").onclick = checkTotalTips;
-    window.addEventListener("load", async () => {
-  if (typeof window.ethereum !== "undefined") {
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-    if (accounts.length > 0) {
-      document.getElementById("walletAddress").innerText = "Connected: " + accounts[0];
-      const connectBtn = document.getElementById("connectBtn");
-      connectBtn.innerText = "Connected ✅";
-      connectBtn.disabled = true;
-    }
-    function showPopup(message, iconpath, textColor = "black") {
-      const popup= document.getElementById("popup")
-      const popupicon= document.getElementById("popupicon");
-      const popupMessage= documentet.getElementById("popupMessage");
-      
-      popupMessge.textContent= message
-      popupMessage.style.color = textColor;
-      popupicon.src= iconpath;
 
-      setTimeout(()=> {
-        popup.classlist.remove("show");
-        popupicon.src = "";
-      }, 3000);   
+    function showPopup(message, iconpath, textColor = "black") {
+      const popup = document.getElementById("popup");
+      const popupIcon = document.getElementById("popupIcon");
+      const popupMessage = document.getElementById("popupMessage");
+
+      popupMessage.textContent = message;
+      popupMessage.style.color = textColor;
+      popupIcon.src = iconpath;
+      popup.classList.add("show");
+
+      setTimeout(() => {
+        popup.classList.remove("show");
+        popupIcon.src = "";
+      }, 3000);
     }
-  }
-});
+
+    window.addEventListener("load", async () => {
+      if (typeof window.ethereum !== "undefined") {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          walletAddressp.innerText = "Connected: " + accounts[0];
+          connectBtn.style.display = "none";
+          disconnectBtn.style.display = "inline-block";
+        }
+      }
+    });
   </script>
 
 </body>
 </html>
+
 
 
